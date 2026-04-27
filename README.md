@@ -26,27 +26,26 @@
 <br/>
 
 ![Aletheia Banner](https://raw.githubusercontent.com/Mrinalray/aletheia/main/assets/banner.png)
+![Aletheia Banner](https://raw.githubusercontent.com/Mrinalray/aletheia/main/assets/intro.hevc)
 
 </div>
 
 ---
 
-## 📋 Table of Contents
+### 📋 Table of Contents
 
 - [Introduction](#-introduction)
 - [Features](#-features)
 - [Screenshots](#-screenshots)
-- [How It Works](#-how-it-works)
 - [Tech Stack](#-tech-stack)
 - [Installation & Setup](#-setup--installation)
-- [API Reference](#-api-reference)
 - [Contributors](#-contributors)
 
 ---
 
 ## 🧠 Introduction
 
-> *"Aletheia"* (ἀλήθεια) — Ancient Greek for **Truth** or **Disclosure**.
+> *"Aletheia"* (Truth) — Ancient Greek for **Truth** or **Disclosure**.
 
 We live in a world where AI can generate hyper-realistic faces, deepfake videos, and cloned voices in seconds. Misinformation spreads faster than fact-checks. **Aletheia** exists to fight that.
 
@@ -266,66 +265,6 @@ npx serve .
 
 ---
 
-## 📡 API Reference
-
-### `GET /api/health`
-
-Returns server status and API key availability.
-
-```json
-{
-  "status": "ok",
-  "apis": {
-    "sightengine": true,
-    "gemini": true
-  }
-}
-```
-
----
-
-### `POST /api/analyze/upload`
-
-Analyze an uploaded image file.
-
-**Request:** `multipart/form-data`
-| Field | Type | Description |
-|-------|------|-------------|
-| `image` | File | JPEG, PNG, GIF, WEBP (max 20MB) |
-
-**Response:**
-```json
-{
-  "verdict": "ai",
-  "aiProbability": 88,
-  "confidence": "High",
-  "estimatedGenerator": "Midjourney",
-  "summary": "This image exhibits strong hallmarks of AI generation...",
-  "aiIndicators": [
-    { "name": "Skin Texture Smoothness", "severity": "High", "description": "..." }
-  ],
-  "realIndicators": [
-    { "name": "Chromatic Aberration", "severity": "Low", "description": "..." }
-  ],
-  "technicalDetails": "SightEngine ai_generated: 0.91 | Top generator: Midjourney (87.3%)",
-  "mediaType": "IMAGE"
-}
-```
-
----
-
-### `POST /api/analyze/url`
-
-Analyze a publicly accessible image URL.
-
-**Request:** `application/json`
-```json
-{ "url": "https://example.com/image.jpg" }
-```
-
-**Response:** Same schema as `/upload`.
-
----
 
 ## 🏗️ Project Structure
 
@@ -333,7 +272,7 @@ Analyze a publicly accessible image URL.
 aletheia/
 ├── index.html          # Main frontend UI
 ├── style.css           # All styles (dark theme, animations)
-├── script.js           # Frontend logic (upload, results, history)
+├── app.js           # Frontend logic (upload, results, history)
 ├── server.js           # Express backend (SightEngine + Gemini)
 ├── .env                # API keys (not committed)
 ├── .env.example        # Template
@@ -342,51 +281,20 @@ aletheia/
 
 ---
 
-## 🔒 Security Notes
-
-- URL analysis blocks private/internal IPs (`localhost`, `127.0.0.1`, `10.x`, `192.168.x`)
-- Only `http://` and `https://` protocols are accepted for URL mode
-- File uploads are validated by both extension and MIME type
-- Rate limiting: 20 requests / minute on `/api/analyze/*`
-- Files are processed in-memory — **nothing is stored on disk**
-
----
-
-## 🧩 Roadmap
-
-- [ ] Video deepfake frame analysis
-- [ ] Audio voice-clone detection
-- [ ] Batch image scanning
-- [ ] Browser extension
-- [ ] Public API with key auth
-- [ ] Export PDF forensic report
-- [ ] Multi-language support
-
----
-
-## 👥 Contributors
+### 👥 Contributors
 
 <div align="center">
 
-Built with 💙 by the **Aletheia Team** for **Google Solution Challenge 2025**
+Built with 💙 by the **TeamX** for **Google Solution Challenge 2026**
 
-| Role | Name |
+| Contributor| Github |
 |------|------|
-| 🧑‍💻 Full Stack & AI Integration | *(your name)* |
-| 🎨 UI/UX Design | *(teammate)* |
-| 🔬 Forensic Research | *(teammate)* |
-| 📊 Backend & APIs | *(teammate)* |
+| Mrinal Roy|
+|Swastika Shaw|
+|Rahul Sah|
+|Arpita Roy| github.com/mrinalray|
 
 </div>
-
----
-
-## 📄 License
-
-```
-MIT License — feel free to use, modify, and distribute.
-See LICENSE for details.
-```
 
 ---
 

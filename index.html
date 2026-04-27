@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Aletheia — Truth Revealed</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+
+<div class="ambient">
+  <div class="orb o1"></div>
+  <div class="orb o2"></div>
+  <div class="orb o3"></div>
+  <div class="grid"></div>
+</div>
+
+<!-- HEADER -->
+<header class="header">
+  <div class="logo">
+    <div class="logo-mark">
+      <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
+        <circle cx="11" cy="11" r="9" stroke="var(--accent)" stroke-width="1.4"/>
+        <circle cx="11" cy="11" r="4.5" stroke="var(--accent)" stroke-width="1.4"/>
+        <circle cx="11" cy="11" r="1.5" fill="var(--accent)"/>
+        <line x1="11" y1="2" x2="11" y2="5" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="11" y1="17" x2="11" y2="20" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="2" y1="11" x2="5" y2="11" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+        <line x1="17" y1="11" x2="20" y2="11" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round"/>
+      </svg>
+    </div>
+    <span class="logo-text">ALETHEIA <span class="logo-emoji">🎭</span></span>
+  </div>
+  <div class="header-right">
+    <div class="sys-status">
+      <div class="sdot"></div>
+      <span>LIVE</span>
+    </div>
+    <div class="be-status" id="backendStatus"><span>connecting…</span></div>
+  </div>
+</header>
+
+<!-- HERO -->
+<section class="hero">
+  <div class="hero-eyebrow"><span class="edot"></span>AI FORENSIC ANALYSIS ENGINE</div>
+  <h1 class="hero-title">UNMASK<br/><span class="accent-word">THE FAKE</span></h1>
+  <p class="hero-sub">Drop any image, video, or URL. We'll reveal if it's real or AI-generated — instantly.</p>
+</section>
+
+<!-- MAIN WRAP (grid: main + sidebar) -->
+<div class="wrap">
+
+  <!-- MAIN COL -->
+  <div class="main-col">
+
+    <!-- INPUT BOX -->
+    <div class="input-box" id="inputBox">
+
+      <div class="preview-area" id="previewArea" style="display:none;">
+        <div id="previewInner"></div>
+      </div>
+
+      <div class="url-row" id="urlRow" style="display:none;">
+        <svg width="15" height="15" viewBox="0 0 16 16" fill="none" style="color:var(--text3);flex-shrink:0">
+          <path d="M6.5 9.5C6.5 9.5 7.5 10.5 9.5 8.5L12.5 5.5C13.5 4.5 13.5 3 12.5 2 11.5 1 10 1 9 2L7.5 3.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+          <path d="M9.5 6.5C9.5 6.5 8.5 5.5 6.5 7.5L3.5 10.5C2.5 11.5 2.5 13 3.5 14 4.5 15 6 15 7 14L8.5 12.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/>
+        </svg>
+        <input type="url" id="urlInput" placeholder="Paste image or video URL…" class="url-field"/>
+      </div>
+
+      <div class="toolbar">
+        <div class="tool-btns">
+          <input type="file" id="fileImg" accept="image/*" hidden onchange="handleFile(event,'image')"/>
+          <input type="file" id="fileVideo" accept="video/*" hidden onchange="handleFile(event,'video')"/>
+          <input type="file" id="fileAudio" accept="audio/*" hidden onchange="handleFile(event,'audio')"/>
+
+          <button class="tbtn" onclick="document.getElementById('fileImg').click()" title="Image">
+            <svg width="17" height="17" viewBox="0 0 18 18" fill="none"><rect x="2" y="3" width="14" height="12" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M2 11 L5.5 8 L8.5 11 L11.5 7.5 L16 11" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/><circle cx="6" cy="7" r="1.5" stroke="currentColor" stroke-width="1.3"/></svg>
+            <span>Image</span>
+          </button>
+          <button class="tbtn" onclick="document.getElementById('fileVideo').click()" title="Video">
+            <svg width="17" height="17" viewBox="0 0 18 18" fill="none"><rect x="2" y="4" width="10" height="10" rx="2" stroke="currentColor" stroke-width="1.3"/><path d="M12 7 L16 5 L16 13 L12 11" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>
+            <span>Video</span>
+          </button>
+          <button class="tbtn" onclick="document.getElementById('fileAudio').click()" title="Audio">
+            <svg width="17" height="17" viewBox="0 0 18 18" fill="none"><path d="M5 5L5 13M7 3L7 15M9 6L9 12M11 3L11 15M13 5L13 13" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            <span>Audio</span>
+          </button>
+          <button class="tbtn" onclick="toggleUrl()" id="urlToggle" title="URL">
+            <svg width="17" height="17" viewBox="0 0 18 18" fill="none"><path d="M7.5 10.5C7.5 10.5 8.5 11.5 10.5 9.5L13.5 6.5C14.5 5.5 14.5 4 13.5 3 12.5 2 11 2 10 3L8.5 4.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/><path d="M10.5 7.5C10.5 7.5 9.5 6.5 7.5 8.5L4.5 11.5C3.5 12.5 3.5 14 4.5 15 5.5 16 7 16 8 15L9.5 13.5" stroke="currentColor" stroke-width="1.3" stroke-linecap="round"/></svg>
+            <span>URL</span>
+          </button>
+        </div>
+        <button class="send-btn" id="analyzeBtn" onclick="startAnalysis()">
+          <svg width="17" height="17" viewBox="0 0 18 18" fill="none"><circle cx="9" cy="9" r="7" stroke="currentColor" stroke-width="1.5"/><path d="M6 9L12 9M9.5 6.5L12 9L9.5 11.5" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+      </div>
+
+      <div class="drag-overlay" id="dragOverlay">
+        <div style="font-size:28px;animation:bounce .6s ease infinite alternate">⬇</div>
+        <span>Drop to analyze</span>
+      </div>
+    </div>
+
+    <p class="hint">JPG · PNG · WEBP · MP4 · MOV · MP3 · URL</p>
+
+    <!-- Mobile history strip -->
+    <div class="history-mobile" id="historyMobile"></div>
+
+    <!-- RESULTS -->
+    <div class="results-area" id="resultsArea" style="display:none;">
+
+      <div class="loading-panel" id="loadingPanel" style="display:none;">
+        <div class="scan-rings">
+          <div class="ring r1"></div><div class="ring r2"></div><div class="ring r3"></div>
+          <div class="ring-core"></div>
+        </div>
+        <div class="loading-steps" id="loadingStepsList"></div>
+      </div>
+
+      <div class="results-content" id="resultsContent" style="display:none;">
+
+        <div class="verdict-header" id="verdictHeader">
+          <div class="vbadge" id="verdictBadge"><span id="verdictIcon">⚠</span></div>
+          <div class="vinfo">
+            <div class="vlabel">FORENSIC VERDICT</div>
+            <div class="vmain" id="verdictMain">—</div>
+          </div>
+          <div class="prob-display">
+            <div class="scale-labels"><span class="sl-real">REAL</span><span class="sl-ai">A.I.</span></div>
+            <div class="scale-track"><div class="scale-needle" id="scaleNeedle" style="left:50%"></div></div>
+            <div class="scale-pct"><span id="realPct">—</span><span id="aiPct">—</span></div>
+          </div>
+        </div>
+
+        <div class="meta-strip">
+          <div class="meta-item">
+            <span class="meta-label">Confidence</span>
+            <span class="meta-value" id="confidenceVal">—</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Est. Generator</span>
+            <span class="meta-value" id="generatorVal">—</span>
+          </div>
+          <div class="meta-item">
+            <span class="meta-label">Media Type</span>
+            <span class="meta-value" id="mediaTypeVal">—</span>
+          </div>
+        </div>
+
+        <div class="rcard">
+          <div class="card-head">
+            <div class="ci ci-info"><svg width="13" height="13" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/><line x1="7" y1="5" x2="7" y2="8" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="7" cy="9.5" r=".5" fill="currentColor"/></svg></div>
+            SUMMARY
+          </div>
+          <p class="card-body" id="summaryText"></p>
+        </div>
+
+        <div class="rcard" id="aiSection">
+          <div class="card-head">
+            <div class="ci ci-warn"><svg width="13" height="13" viewBox="0 0 14 14"><path d="M7 1.5L13 12L1 12Z" stroke="currentColor" stroke-width="1.2" fill="none"/><line x1="7" y1="5.5" x2="7" y2="8.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round"/><circle cx="7" cy="10" r=".5" fill="currentColor"/></svg></div>
+            AI GENERATION SIGNALS
+          </div>
+          <div class="indicators" id="aiIndicators"></div>
+        </div>
+
+        <div class="rcard" id="realSection">
+          <div class="card-head">
+            <div class="ci ci-ok"><svg width="13" height="13" viewBox="0 0 14 14"><circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2"/><path d="M4.5 7L6.5 9L9.5 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round"/></svg></div>
+            AUTHENTIC SIGNALS
+          </div>
+          <div class="indicators" id="realIndicators"></div>
+        </div>
+
+        <div class="rcard">
+          <div class="card-head">
+            <div class="ci ci-mono"><svg width="13" height="13" viewBox="0 0 14 14"><rect x="1.5" y="1.5" width="11" height="11" rx="1" stroke="currentColor" stroke-width="1.2"/><line x1="4" y1="5" x2="10" y2="5" stroke="currentColor" stroke-width="1"/><line x1="4" y1="7" x2="8" y2="7" stroke="currentColor" stroke-width="1"/><line x1="4" y1="9" x2="9" y2="9" stroke="currentColor" stroke-width="1"/></svg></div>
+            TECHNICAL ANALYSIS
+          </div>
+          <p class="card-body mono" id="technicalText"></p>
+        </div>
+
+        <button class="reset-btn" onclick="resetAll()">↺ Analyze Another</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- SIDEBAR (desktop) -->
+  <div class="history-sidebar" id="historySidebar">
+    <div class="hsidebar-title">RECENT ANALYSES</div>
+    <div class="hist-list" id="histList">
+      <div class="hist-empty" id="histEmpty">No recent analyses</div>
+    </div>
+    <button class="why-trigger-btn" onclick="openModal()" style="margin-top:20px;">
+      <div class="ham-lines"><span></span><span></span><span></span></div>
+      <span class="btn-label">Why This Matters</span>
+      <span class="btn-arrow">→</span>
+    </button>
+  </div>
+
+</div>
+
+<!-- WHY TRIGGER (mobile) -->
+<div style="position:relative;z-index:1;max-width:760px;margin:0 auto 40px;padding:0 20px;" id="whyMobileBtn">
+  <button class="why-trigger-btn" onclick="openModal()">
+    <div class="ham-lines"><span></span><span></span><span></span></div>
+    <span class="btn-label">Why Deepfake Detection Matters</span>
+    <span class="btn-arrow">→</span>
+  </button>
+</div>
+
+<!-- MODAL -->
+<div class="modal-overlay" id="modalOverlay" onclick="handleOverlayClick(event)">
+  <div class="modal-box" id="modalBox">
+    <div class="modal-header">
+      <div class="modal-title">THE DEEPFAKE CRISIS</div>
+      <button class="modal-close" onclick="closeModal()">✕</button>
+    </div>
+    <div class="modal-body">
+      <div class="modal-eyebrow"><span class="edot"></span>WHY THIS MATTERS NOW</div>
+      <div class="modal-sec-title">THE THREAT IS<br/>ALREADY HERE</div>
+      <p class="modal-intro">AI-generated media is evolving faster than human perception. What was detectable last year is indistinguishable today. The stakes couldn't be higher — especially for women and vulnerable communities.</p>
+
+      <div class="modal-stats-grid">
+        <div class="ms-card">
+          <div class="ms-icon" style="background:rgba(255,64,102,.12);color:var(--danger)">📈</div>
+          <div class="ms-stat" style="color:var(--danger)">900%</div>
+          <div class="ms-slabel">RISE SINCE 2019</div>
+          <p class="ms-body">Deepfake content online has surged over 900% since 2019. AI video generators now produce hyper-realistic faces in seconds at near-zero cost.</p>
+        </div>
+        <div class="ms-card">
+          <div class="ms-icon" style="background:rgba(160,127,255,.12);color:var(--purple)">👩</div>
+          <div class="ms-stat" style="color:var(--purple)">96%</div>
+          <div class="ms-slabel">TARGETS ARE WOMEN</div>
+          <p class="ms-body">Non-consensual deepfake imagery targets women in over 96% of cases — weaponised for harassment, blackmail, and reputational destruction without the victim's knowledge.</p>
+        </div>
+        <div class="ms-card">
+          <div class="ms-icon" style="background:rgba(255,193,66,.12);color:var(--warn)">🧠</div>
+          <div class="ms-stat" style="color:var(--warn)">53%</div>
+          <div class="ms-slabel">HUMAN ACCURACY</div>
+          <p class="ms-body">Humans correctly identify AI-generated faces only 53% of the time — barely above chance. Modern diffusion models now surpass the human eye's ability to spot synthetic content.</p>
+        </div>
+        <div class="ms-card">
+          <div class="ms-icon" style="background:rgba(0,239,168,.1);color:var(--green)">🔬</div>
+          <div class="ms-stat" style="color:var(--green)">AI</div>
+          <div class="ms-slabel">FIGHTING BACK</div>
+          <p class="ms-body">The only effective counter to AI-generated deception is AI forensic analysis — examining pixel-level artifacts, frequency patterns, and model signatures the human eye cannot perceive.</p>
+        </div>
+      </div>
+
+      <div class="modal-why-title">WHY WE BUILT THIS</div>
+      <div class="modal-why-grid">
+        <div class="mw-card">
+          <div class="mw-num">01</div>
+          <div class="mw-title">Political Disinformation</div>
+          <div class="mw-body">Fabricated videos of world leaders making false statements circulate before fact-checkers can respond — shaping elections and public policy.</div>
+        </div>
+        <div class="mw-card">
+          <div class="mw-num">02</div>
+          <div class="mw-title">Non-Consensual Imagery</div>
+          <div class="mw-body">Synthetic intimate images of real people — created without consent and shared to harass, coerce, or silence — predominantly target women and girls.</div>
+        </div>
+        <div class="mw-card">
+          <div class="mw-num">03</div>
+          <div class="mw-title">Financial Fraud</div>
+          <div class="mw-body">AI voice clones of executives are used in real-time calls to authorise fraudulent wire transfers — costing organisations billions annually.</div>
+        </div>
+        <div class="mw-card">
+          <div class="mw-num">04</div>
+          <div class="mw-title">Evidence Manipulation</div>
+          <div class="mw-body">Fabricated media is increasingly submitted in legal proceedings and social disputes. Verifying authenticity is now a matter of justice.</div>
+        </div>
+        <div class="mw-card">
+          <div class="mw-num">05</div>
+          <div class="mw-title">Eroding Trust</div>
+          <div class="mw-body">When everything can be faked, nothing can be trusted. Aletheia exists to restore a verifiable ground truth in a world drowning in synthetic media.</div>
+        </div>
+        <div class="mw-card">
+          <div class="mw-num">06</div>
+          <div class="mw-title">Model Arms Race</div>
+          <div class="mw-body">Midjourney, DALL·E, Sora, Stable Diffusion — each release makes detection harder. Our multi-model forensic pipeline stays ahead of the curve.</div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- FOOTER -->
+<footer class="footer">
+  <div class="footer-inner">
+    <div class="footer-brand">
+      <span class="footer-logo">ALETHEIA</span>
+      <span class="footer-tag">Truth Engine v2.0</span>
+    </div>
+    <div class="footer-divider"></div>
+    <div class="footer-team">
+      <div class="footer-team-label">TEAM X</div>
+      <div class="footer-members">
+        <span>Mrinal Roy</span>
+        <span class="fdot">·</span>
+        <span>Swastika Shaw</span>
+        <span class="fdot">·</span>
+        <span>Rahul Sah</span>
+        <span class="fdot">·</span>
+        <span>Arpita Roy</span>
+      </div>
+    </div>
+  </div>
+</footer>
+
+<script src="app.js"></script>
+</body>
+</html>

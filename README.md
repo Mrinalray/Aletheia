@@ -25,7 +25,7 @@
 
 <br/>
 
-![Aletheia Banner](https://raw.githubusercontent.com/Mrinalray/aletheia/main/assets/banner.png)
+![Aletheia Banner](https://raw.githubusercontent.com/Mrinalray/aletheia/main/assets/mainpage.png)
 
 
 </div>

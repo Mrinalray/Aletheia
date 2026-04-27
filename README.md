@@ -21,7 +21,7 @@
 
 <br/>
 
-[**🔍 Live Demo**](https://aletheia.live) · [**📖 Docs**](#-setup--installation) · [**🐛 Report Bug**](../../issues) · [**✨ Request Feature**](../../issues)
+## [**🔍 Live Demo**](https://aletheia-deepfake-tool.netlify.app/) · [**📖 Docs**](#-setup--installation)
 
 <br/>
 

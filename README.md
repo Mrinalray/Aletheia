@@ -291,11 +291,11 @@ aletheia/
 Built with 💙 by the **TeamX** for **Google Solution Challenge 2026**
 
 | Contributor| Github |
-|------|------|
-| Mrinal Roy|
-|Swastika Shaw|
-|Rahul Sah|
-|Arpita Roy| github.com/mrinalray|
+|------------|--------------|
+| Mrinal Roy|https://github.com/mrinalray|
+|Swastika Shaw|         |
+|Rahul Sah| |
+|Arpita Roy| |
 
 </div>
 
@@ -307,7 +307,7 @@ Built with 💙 by the **TeamX** for **Google Solution Challenge 2026**
 
 `DETECT · ANALYZE · TRUST`
 
-[![GitHub stars](https://img.shields.io/github/stars/your-username/aletheia?style=social)](../../stargazers)
-[![GitHub forks](https://img.shields.io/github/forks/your-username/aletheia?style=social)](../../network/members)
+[![GitHub stars](https://img.shields.io/github/stars/mrinalray/aletheia?style=social)](../../stargazers)
+[![GitHub forks](https://img.shields.io/github/forks/mrinalray/aletheia?style=social)](../../network/members)
 
 </div>

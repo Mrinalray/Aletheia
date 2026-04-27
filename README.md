@@ -119,6 +119,7 @@ Aletheia can identify **18+ AI generators** including:
 │  High            │  Midjourney  │  IMAGE            │
 └──────────────────┴──────────────┴───────────────────┘
 ```
+![Aletheia Result](https://raw.githubusercontent.com/Mrinalray/aletheia/main/assets/result.png)
 
 </div>
 

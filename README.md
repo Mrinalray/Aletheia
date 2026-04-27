@@ -101,7 +101,9 @@ Aletheia can identify **18+ AI generators** including:
 │                                                    │
 │        Drop your media here to analyze             │
 └────────────────────────────────────────────────────┘
+
 ```
+![Aletheia Upload section](https://raw.githubusercontent.com/Mrinalray/aletheia/main/assets/upload-section.png)
 
 ### Verdict Panel
 > Forensic verdict with animated confidence scale

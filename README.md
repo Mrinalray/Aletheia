@@ -207,9 +207,9 @@ Built with 💙 by **TeamX** for **Google Solution Challenge 2026**
 
 | Contributor | GitHub |
 |-------------|--------|
-| Mrinal Roy | [@mrinalray](https://github.com/mrinalray) |
-| Swastika Shaw | — |
-| Rahul Sah | — |
+| Mrinal Roy | [@mrinalray](https://github.com/mrinalray)|
+| Swastika Shaw | [@Swastika](https://github.com/Swastika01-suu)|
+| Rahul Sah |[@Rahul](https://github.com/real-Rahul1) |
 | Arpita Roy | — |
 
 <br/>

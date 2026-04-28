@@ -12,7 +12,7 @@
 
 ![Aletheia Banner](https://raw.githubusercontent.com/Mrinalray/aletheia/main/assets/mainpage.png)
 
-## [**🔍 Live Demo**](https://aletheia-deepfake-tool.netlify.app/) · [**📖 Docs**](#-setup--installation)
+## [**🔍 Live Demo**](https://aletheia-deepfake-tool.netlify.app/) · [**📖 Prototype PPT**](#-setup--installation)
 
 <br/>
 

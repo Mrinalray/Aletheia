@@ -459,15 +459,18 @@ function shakeBox() {
 }
 
 // ── MODAL ──
+function closeModal() {
+  const modal = document.getElementById('modalOverlay');
+  const iframe = document.getElementById('modalVideo');
+
+  modal.classList.remove('open');
+  document.body.style.overflow = '';
+
+  if (iframe) {
+    iframe.src = iframe.src;
+  }
+}
 function openModal() {
   document.getElementById('modalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
 }
-function closeModal() {
-  document.getElementById('modalOverlay').classList.remove('open');
-  document.body.style.overflow = '';
-}
-function handleOverlayClick(e) {
-  if (e.target === document.getElementById('modalOverlay')) closeModal();
-}
-document.addEventListener('keydown', e => { if (e.key === 'Escape') closeModal(); });

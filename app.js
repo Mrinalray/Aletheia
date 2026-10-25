@@ -1,20 +1,81 @@
 // ── CONFIG ──
-const BACKEND_URL = 'https://google-hackathon-bqrh.onrender.com';
+const BACKEND_URL = 'https://aletheia-blockchain.onrender.com';
 
 // ── STATE ──
 let currentFile = null, currentMode = null, urlModeActive = false;
 let analysisHistory = []; // [{id, name, thumb, verdict, aiPct, result, mode}]
 
+// SIH26204 — blockchain layer state (kept separate from the existing
+// AI-detection state above; never influences currentFile/currentMode/etc.)
+let currentAnalysisResult = null;
+let currentAnalysisName   = null;
+let currentBcRecord       = null;
+let bcRegistering         = false;
+
 // ── INIT ──
 document.addEventListener('DOMContentLoaded', () => {
   setupDragDrop();
   checkBackend();
+  setupIntro();
+  setupExtensionImage();
 });
+
+/* ── CHROME EXTENSION INTEGRATION ──
+   If Aletheia was opened by the browser extension with:
+   ?extensionImage=<image-url>
+   automatically put that URL into the existing URL analyzer
+   and start the normal analysis pipeline.
+*/
+function setupExtensionImage() {
+  const params = new URLSearchParams(window.location.search);
+  const imageUrl = params.get('extensionImage');
+
+  if (!imageUrl) return;
+
+  // Only accept absolute HTTP(S) URLs.
+  let parsedUrl;
+  try {
+    parsedUrl = new URL(imageUrl);
+  } catch {
+    showError('The extension supplied an invalid image URL.');
+    return;
+  }
+
+  if (!['http:', 'https:'].includes(parsedUrl.protocol)) {
+    showError('The extension supplied an unsupported image URL.');
+    return;
+  }
+
+  const urlInput = document.getElementById('urlInput');
+  if (!urlInput) return;
+
+  // Switch the existing analyzer to URL mode.
+  if (!urlModeActive) toggleUrl();
+
+  urlInput.value = imageUrl;
+
+  // Remove the parameter from the visible browser URL so a refresh
+  // does not accidentally submit the same image again.
+  const cleanUrl = new URL(window.location.href);
+  cleanUrl.searchParams.delete('extensionImage');
+  window.history.replaceState({}, document.title, cleanUrl.toString());
+
+  // Let the page finish rendering before starting the normal analyzer.
+  setTimeout(() => {
+    startAnalysis();
+  }, 250);
+}
 
 async function checkBackend() {
   const el = document.getElementById('backendStatus');
+
+  // Render's free tier sleeps after inactivity — the first request can take
+  // 10-50s+ to wake it up. Show a "waking up" state instead of failing fast,
+  // then give it real time to respond before calling it offline.
+  el.innerHTML = `<span style="color:var(--warn);font-family:var(--font-mono);font-size:10px">◌ waking up…</span>`;
+
   try {
-    const r = await fetch(`${BACKEND_URL}/api/health`, { signal: AbortSignal.timeout(4000) });
+    const r = await fetch(`${BACKEND_URL}/api/health`, { signal: AbortSignal.timeout(20000) });
     el.innerHTML = r.ok
       ? `<span style="color:var(--green);font-family:var(--font-mono);font-size:10px">● connected</span>`
       : `<span style="color:var(--warn);font-family:var(--font-mono);font-size:10px">⚠ degraded</span>`;
@@ -299,6 +360,213 @@ function showResults(data, name, mode) {
   }
 
   document.getElementById('technicalText').textContent = data.technicalDetails || '— No technical data —';
+
+  // ── SIH26204: Blockchain Authenticity section ──
+  // Purely additive — reads data.mediaHash produced by the existing
+  // analyze() pipeline; never affects the AI verdict rendered above.
+  currentAnalysisResult = data;
+  currentAnalysisName   = name;
+  initBlockchainSection(data);
+}
+
+// ── SIH26204: BLOCKCHAIN AUTHENTICITY ──────────────────────────
+function initBlockchainSection(data) {
+  currentBcRecord = null;
+  const actions = document.getElementById('bcActions');
+  const regPanel = document.getElementById('bcRegisteredPanel');
+  const demoTag = document.getElementById('bcDemoTag');
+  actions.style.display = 'none';
+  regPanel.style.display = 'none';
+  demoTag.style.display = 'none';
+  setBcPill('bc-checking', 'Checking blockchain…');
+  setBcNote('Verifying whether this exact media fingerprint is already registered on-chain.');
+
+  if (!data.mediaHash) {
+    setBcPill('bc-unavailable', '⚠ Fingerprint unavailable');
+    setBcNote('Could not generate a media fingerprint for this analysis, so blockchain registration is unavailable for this item. Your AI detection result above is unaffected.');
+    return;
+  }
+
+ fetch(`${BACKEND_URL || 'https://aletheia-blockchain.onrender.com'}/api/blockchain/status/${encodeURIComponent(data.mediaHash)}`, {
+  signal: AbortSignal.timeout(8000)
+})
+    .then(r => r.json())
+    .then(status => {
+      if (status.demoMode) demoTag.style.display = 'inline-block';
+      if (status.error) {
+        setBcPill('bc-unavailable', '⚠ Temporarily unavailable');
+        setBcNote('Blockchain status check failed. Your AI detection result above is unaffected.');
+        return;
+      }
+      if (status.registered) {
+        // Already on-chain — fetch the full record to display it.
+        fetchAndRenderRecordByHash(data.mediaHash, status.demoMode);
+      } else {
+        setBcPill('bc-not-registered', 'Not Registered');
+        setBcNote('No matching blockchain record exists yet. "Not Registered" does not mean this media is fake — you can optionally create a tamper-evident record of the verdict above.');
+        actions.style.display = 'flex';
+      }
+    })
+    .catch(() => {
+      setBcPill('bc-unavailable', '⚠ Temporarily unavailable');
+      setBcNote('Could not reach the blockchain service. Your AI detection result above is unaffected.');
+    });
+}
+
+function setBcPill(cls, text) {
+  const pill = document.getElementById('bcStatusPill');
+  pill.className = `bc-status-pill ${cls}`;
+  pill.textContent = text;
+}
+function setBcNote(text) {
+  document.getElementById('bcNote').textContent = text;
+}
+
+async function registerOnBlockchain() {
+  if (bcRegistering || !currentAnalysisResult?.mediaHash) return;
+  bcRegistering = true;
+  const btn = document.getElementById('bcRegisterBtn');
+  btn.disabled = true;
+  btn.textContent = 'Registering…';
+  setBcPill('bc-checking', 'Submitting to blockchain…');
+
+  const data = currentAnalysisResult;
+  const verdict = data.verdict || 'uncertain';
+  const confidenceMap = { High: 95, Medium: 70, Low: 40 };
+  const confidencePct = Math.round(data.aiProbability != null
+    ? (verdict === 'ai' ? data.aiProbability : 100 - data.aiProbability)
+    : (confidenceMap[data.confidence] ?? 50));
+
+  try {
+    const r = await fetch(`${'https://aletheia-blockchain.onrender.com'}/api/blockchain/register`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        mediaHash: data.mediaHash,
+        verdict,
+        confidence: Math.max(0, Math.min(100, confidencePct)),
+        mediaType: data.mediaType || 'IMAGE',
+        modelVersion: 'sightengine-genai+gemini',
+        reportData: {
+          summary: data.summary,
+          technicalDetails: data.technicalDetails,
+          aiIndicators: data.aiIndicators,
+          realIndicators: data.realIndicators,
+        },
+      }),
+    });
+    const out = await r.json();
+
+    if (!r.ok || !out.success) {
+      if (out.error?.code === 'DUPLICATE') {
+        fetchAndRenderRecordByHash(data.mediaHash, out.demoMode);
+        return;
+      }
+      setBcPill('bc-unavailable', '⚠ Registration failed');
+      setBcNote(out.error?.message || 'Blockchain registration is temporarily unavailable. Your AI detection result above is unaffected.');
+      btn.disabled = false;
+      btn.textContent = 'Register on Blockchain';
+      return;
+    }
+
+    fetchAndRenderRecordByHash(data.mediaHash, out.demoMode);
+  } catch (err) {
+    setBcPill('bc-unavailable', '⚠ Registration failed');
+    setBcNote('Could not reach the blockchain service. Your AI detection result above is unaffected.');
+    btn.disabled = false;
+    btn.textContent = 'Register on Blockchain';
+  } finally {
+    bcRegistering = false;
+  }
+}
+
+async function fetchAndRenderRecordByHash(mediaHash, demoModeHint) {
+  // Registration responses always carry a deterministic Verification ID
+  // (first 8 hex chars of the hash, uppercased) — the same rule the
+  // backend uses — so we can look the record up directly without
+  // re-uploading the file.
+  const clean = mediaHash.replace(/^0x/, '');
+  const verificationId = `ALT-${clean.slice(0, 8).toUpperCase()}`;
+  try {
+    const r = await fetch(`${'https://aletheia-blockchain.onrender.com'}/api/blockchain/record/${verificationId}`, { signal: AbortSignal.timeout(8000) });
+    if (!r.ok) throw new Error('lookup failed');
+    const { record, demoMode } = await r.json();
+    renderBcRegistered(record, demoMode ?? demoModeHint);
+  } catch {
+    setBcPill('bc-unavailable', '⚠ Registered, but record lookup failed');
+    setBcNote('This media was registered, but the record could not be retrieved right now. Try again shortly.');
+  }
+}
+
+function renderBcRegistered(record, demoMode) {
+  currentBcRecord = record;
+  document.getElementById('bcActions').style.display = 'none';
+  document.getElementById('bcDemoTag').style.display = demoMode ? 'inline-block' : 'none';
+  setBcPill('bc-registered', '✓ Registered');
+  setBcNote('This media has a tamper-evident authenticity record on the blockchain.');
+
+  document.getElementById('bcVerId').textContent    = record.verificationId || '—';
+  document.getElementById('bcNetwork').textContent  = demoMode ? 'Demo Blockchain Mode' : 'Ethereum Sepolia Testnet';
+  document.getElementById('bcTimestamp').textContent = record.timestamp
+    ? new Date(record.timestamp * 1000).toLocaleString()
+    : '—';
+  const tx = record.txHash || record.mediaHash || '—';
+  document.getElementById('bcTxHash').textContent = tx.length > 24 ? `${tx.slice(0, 14)}…${tx.slice(-8)}` : tx;
+
+  document.getElementById('bcRegisteredPanel').style.display = 'block';
+
+  const btn = document.getElementById('bcRegisterBtn');
+  if (btn) { btn.disabled = false; btn.textContent = 'Register on Blockchain'; }
+}
+
+function openVerifyPage() {
+  if (!currentBcRecord?.verificationId) return;
+  window.open(`verify.html?id=${encodeURIComponent(currentBcRecord.verificationId)}`, '_blank');
+}
+
+function openCertificate() {
+  if (!currentBcRecord) return;
+  const rec = currentBcRecord;
+  const data = currentAnalysisResult || {};
+
+  const rows = [
+    ['Media Name', currentAnalysisName || '—'],
+    ['Media Type', rec.mediaType || data.mediaType || '—'],
+    ['ALETHEIA Verdict', (rec.verdict || data.verdict || '—').toUpperCase()],
+    ['Confidence', `${rec.confidence ?? data.aiProbability ?? '—'}%`],
+    ['SHA-256', rec.mediaHash || data.mediaHash || '—'],
+    ['Blockchain Network', rec.demoMode ? 'Demo Blockchain Mode' : 'Ethereum Sepolia Testnet'],
+    ['Transaction / Reference', rec.txHash || '—'],
+    ['Timestamp', rec.timestamp ? new Date(rec.timestamp * 1000).toLocaleString() : '—'],
+    ['Verification ID', rec.verificationId || '—'],
+    ['Blockchain Status', '✓ Registered'],
+  ];
+
+  const grid = document.getElementById('certGrid');
+  grid.innerHTML = '';
+  rows.forEach(([label, value]) => {
+    const row = document.createElement('div');
+    row.className = 'cert-row';
+    row.innerHTML = `<span class="cert-row-label">${label}</span><span class="cert-row-value">${value}</span>`;
+    grid.appendChild(row);
+  });
+
+  const qrEl = document.getElementById('certQr');
+  qrEl.innerHTML = '';
+  const verifyUrl = `${window.location.origin}/verify/${encodeURIComponent(rec.verificationId || '')}`;
+  if (window.QRCode) {
+    new QRCode(qrEl, { text: verifyUrl, width: 84, height: 84, colorDark: '#0f172a', colorLight: '#ffffff' });
+  } else {
+    qrEl.textContent = 'QR unavailable';
+  }
+
+  document.getElementById('certModalOverlay').classList.add('open');
+  document.body.style.overflow = 'hidden';
+}
+
+function closeCertModal() {
+  document.getElementById('certModalOverlay').classList.remove('open');
+  document.body.style.overflow = '';
 }
 
 // ── BUILD SECTION INTRO ──
@@ -309,10 +577,10 @@ function buildSectionIntro(text, type) {
     font-family: var(--font-mono);
     letter-spacing: 0.5px;
     color: ${type === 'ai' ? 'var(--warn)' : 'var(--green)'};
-    opacity: 0.75;
+    opacity: 0.85;
     margin-bottom: 10px;
     padding-bottom: 8px;
-    border-bottom: 1px solid rgba(255,255,255,0.05);
+    border-bottom: 1px solid var(--border);
   `;
   d.textContent = text;
   return d;
@@ -361,7 +629,7 @@ function showError(msg) {
   const rc = document.getElementById('resultsContent');
   rc.style.display = 'flex';
   rc.innerHTML = `
-    <div style="padding:22px;background:rgba(255,63,94,.07);border:1px solid rgba(255,63,94,.3);border-radius:12px;color:var(--danger);font-family:var(--font-mono);font-size:12px;line-height:1.6;">
+    <div style="padding:22px;background:rgba(220,38,38,.06);border:1px solid rgba(220,38,38,.25);border-radius:12px;color:var(--danger);font-family:var(--font-mono);font-size:12px;line-height:1.6;">
       <div style="font-size:9px;letter-spacing:2px;margin-bottom:8px;color:var(--text3)">ERROR</div>${msg}
     </div>
     <button class="reset-btn" onclick="resetAll()">↺ Try Again</button>`;
@@ -444,6 +712,10 @@ function resetAll() {
   document.getElementById('urlInput').value = '';
   if (urlModeActive) toggleUrl();
   document.getElementById('resultsArea').style.display = 'none';
+  // SIH26204: clear blockchain state so a fresh analysis starts clean
+  currentAnalysisResult = null;
+  currentAnalysisName   = null;
+  currentBcRecord       = null;
   window.scrollTo({ top: 0, behavior: 'smooth' });
 }
 
@@ -473,4 +745,41 @@ function closeModal() {
 function openModal() {
   document.getElementById('modalOverlay').classList.add('open');
   document.body.style.overflow = 'hidden';
+}
+
+// ── INTRO SECTION ──
+// The URL form / upload buttons that used to live in the intro hero have
+// been removed from the page. This function is kept (guarded with a null
+// check) so nothing breaks if they're ever reintroduced.
+function setupIntro() {
+  const form = document.getElementById('introUrlForm');
+  if (form) {
+    form.addEventListener('submit', (e) => {
+      e.preventDefault();
+      const introInput = document.getElementById('introUrlInput');
+      const val = introInput.value.trim();
+      if (!val) return;
+
+      // Push the URL into the real analyzer, enabling URL mode if needed.
+      if (!urlModeActive) toggleUrl();
+      document.getElementById('urlInput').value = val;
+      introInput.value = '';
+
+      startAnalysis();
+    });
+  }
+}
+
+// Scrolls to the analyzer box and, optionally, opens the matching file picker.
+// No longer wired to any button in the intro section, kept for potential reuse.
+function scrollToUploader(type) {
+  const box = document.getElementById('inputBox');
+  if (!box) return;
+  box.scrollIntoView({ behavior: 'smooth', block: 'center' });
+
+  const pickerId = type === 'video' ? 'fileVideo' : type === 'audio' ? 'fileAudio' : 'fileImg';
+  setTimeout(() => {
+    const picker = document.getElementById(pickerId);
+    if (picker) picker.click();
+  }, 450);
 }

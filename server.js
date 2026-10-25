@@ -14,13 +14,22 @@ const path     = require('path');
 const FormData = require('form-data');
 const { GoogleGenerativeAI } = require('@google/generative-ai');
 
+/* ── SIH26204: Decentralized Media Authenticity Verification Layer ──
+   Additive only — does not change any existing AI/forensic logic. */
+const hashService       = require('./services/hashService');
+const blockchainService = require('./services/blockchainService');
+
 const app  = express();
 const PORT = process.env.PORT || 3001;
 
 /* ── CONFIG ──────────────────────────────────────────────────── */
 const CONFIG = {
-  SIGHTENGINE_USER:   process.env.SIGHTENGINE_API_USER   || '',
-  SIGHTENGINE_SECRET: process.env.SIGHTENGINE_API_SECRET || '',
+  // Accept either naming convention — the .env in this project uses
+  // SIGHTENGINE_USER/SIGHTENGINE_SECRET; some setup guides use the
+  // SIGHTENGINE_API_USER/SIGHTENGINE_API_SECRET names. Support both so
+  // SightEngine actually activates instead of silently staying unconfigured.
+  SIGHTENGINE_USER:   process.env.SIGHTENGINE_API_USER   || process.env.SIGHTENGINE_USER   || '',
+  SIGHTENGINE_SECRET: process.env.SIGHTENGINE_API_SECRET || process.env.SIGHTENGINE_SECRET || '',
   GEMINI_API_KEY:     process.env.GEMINI_API_KEY         || '',
   MAX_FILE_SIZE_MB:   20,
 };
@@ -42,14 +51,28 @@ try {
 }
 
 /* ── MULTER (in-memory upload) ───────────────────────────────── */
+// Accepts images, video, and audio — the forensic pipeline below (SightEngine
+// + Gemini) branches on mimeType, so this filter no longer needs to be
+// image-only. This previously rejected every video/audio upload before it
+// ever reached analyze(), which is why those modes silently failed.
 const upload = multer({
   storage: multer.memoryStorage(),
   limits: { fileSize: CONFIG.MAX_FILE_SIZE_MB * 1024 * 1024 },
   fileFilter: (req, file, cb) => {
-    const allowed = /jpeg|jpg|png|gif|webp/;
-    const extOk   = allowed.test(path.extname(file.originalname).toLowerCase());
-    const mimeOk  = allowed.test(file.mimetype);
-    cb(extOk && mimeOk ? null : new Error('Only image files allowed'), extOk && mimeOk);
+    const okType = /^(image|video|audio)\//.test(file.mimetype);
+    cb(okType ? null : new Error('Only image, video, or audio files are supported'), okType);
+  }
+});
+
+/* Broader upload for the blockchain "Verify Media" endpoint — this route
+   only fingerprints bytes (SHA-256), it does not run AI detection, so it
+   isn't limited to images the way /api/analyze/upload is. */
+const uploadForVerify = multer({
+  storage: multer.memoryStorage(),
+  limits: { fileSize: CONFIG.MAX_FILE_SIZE_MB * 1024 * 1024 },
+  fileFilter: (req, file, cb) => {
+    const okType = /^(image|video|audio)\//.test(file.mimetype);
+    cb(okType ? null : new Error('Only image, video, or audio files are supported'), okType);
   }
 });
 
@@ -143,6 +166,15 @@ async function runSightEngine(fileBuffer, mimeType) {
     return null;
   }
 
+  // The 'genai' model this project uses is an image-classification model —
+  // sending it video/audio bytes under a fake .jpg filename produced
+  // meaningless (or error) results. Skip it for non-image media and rely on
+  // Gemini alone, which does support video and audio input directly.
+  if (!mimeType.startsWith('image/')) {
+    console.log(`[SightEngine] Skipping — genai model only supports images (got ${mimeType})`);
+    return null;
+  }
+
   try {
     const form = new FormData();
     form.append('media', fileBuffer, { filename: 'image.jpg', contentType: mimeType });
@@ -206,19 +238,56 @@ async function runGemini(imageBase64, mimeType, sightEngineData) {
     if (topGen) seSummary += `, top generator: ${topGen.label} (${(topGen.score * 100).toFixed(1)}%)`;
   }
 
-  // ── Prompt instructs Gemini to return proper objects, not strings ──
-  const prompt = `You are an expert forensic AI image analyst.
+  // ── Media-specific framing ──────────────────────────────────
+  // The old prompt was hardcoded to "image" and image-only cues (skin
+  // texture, bokeh, fingers), which made no sense for video or audio and
+  // is a big part of why those modes looked broken. Branch by mediaType.
+  const mediaKind = mimeType.split('/')[0]; // 'image' | 'video' | 'audio'
 
-Analyze the provided image and determine whether it is AI-generated or a real photograph.
+  const MEDIA_CONFIG = {
+    image: {
+      role:   'expert forensic AI image analyst',
+      task:   'Analyze the provided image and determine whether it is AI-generated or a real photograph.',
+      checks: '5. Check for: smooth skin, perfect symmetry, impossible bokeh, inconsistent shadows, garbled text, extra/missing fingers.',
+      categoryHint: 'e.g. skin texture, lighting, shadows, edges, noise patterns, symmetry, background, text/fingers, color grading, depth of field',
+    },
+    video: {
+      role:   'expert forensic deepfake video analyst',
+      task:   'Analyze the provided video (sampling frames and motion over time as needed) and determine whether it is AI-generated / a deepfake or authentic footage.',
+      checks: `5. Check for: unnatural blinking or lack of blinking, warping around face/hair edges that moves independently of head motion, lip-sync mismatch, morphing/melting artifacts on the face across frames, reflections or occlusions (hands, hair passing in front of the face) that render incorrectly.
+6. IMPORTANT — do NOT treat ordinary capture-quality issues as AI signals. Cheap or low-light webcam footage routinely has: blown-out/overexposed backlighting, uneven or harsh lighting on the face, low frame rate (judder/stepping in motion), block/mosquito compression artifacts, sensor noise/grain, and slightly inconsistent shadow softness. None of these alone indicate AI generation — real amateur webcam and phone recordings look exactly like this. Only flag lighting/shadow/motion issues if they are physically inconsistent in a way normal capture cannot produce (e.g. a shadow falling the wrong direction relative to the visible light source, a reflection missing entirely, motion that violates anatomy).`,
+      categoryHint: 'e.g. facial warping independent of head motion, blink rate, lip-sync accuracy, face-region morphing across frames, physically-impossible reflections/shadows, anatomically incorrect motion',
+    },
+    audio: {
+      role:   'expert forensic synthetic-speech analyst',
+      task:   'Analyze the provided audio clip and determine whether the voice is AI-generated / synthetic (voice clone, TTS) or authentic human speech.',
+      checks: '5. Check for: unnatural prosody or flat intonation, missing breaths/mouth sounds, robotic or metallic timbre, unnatural pacing or word timing, spectral artifacts, inconsistent background noise or room tone, mispronunciations typical of TTS.',
+      categoryHint: 'e.g. prosody/intonation, breathing sounds, timbre naturalness, pacing, background noise consistency, pronunciation artifacts, pitch stability',
+    },
+  }[mediaKind] || MEDIA_CONFIG_IMAGE_FALLBACK();
+
+  function MEDIA_CONFIG_IMAGE_FALLBACK() {
+    return {
+      role:   'expert forensic AI media analyst',
+      task:   'Analyze the provided media and determine whether it is AI-generated or authentic.',
+      checks: '5. Check for any artifacts typical of AI generation for this media type.',
+      categoryHint: 'e.g. any distinct, media-appropriate forensic signal',
+    };
+  }
+
+  // ── Prompt instructs Gemini to return proper objects, not strings ──
+  const prompt = `You are an ${MEDIA_CONFIG.role}.
+
+${MEDIA_CONFIG.task}
 
 ${seSummary ? `EXTERNAL SIGNAL (high-weight forensic evidence):\n${seSummary}\n` : ''}
 
 DETECTION RULES:
-1. Look for a small 4-pointed star (✦) watermark — this is Google SynthID. If found: verdict="ai", estimatedGenerator="Google Imagen / Gemini".
+1. Look for a small 4-pointed star (✦) watermark on visual frames — this is Google SynthID. If found: verdict="ai", estimatedGenerator="Google Imagen / Gemini".
 2. If SightEngine shows ai_generated >= 0.5, heavily weight toward "ai".
 3. If SightEngine identifies a generator with score >= 0.3, use it as estimatedGenerator.
-4. Do NOT let photorealism override forensic signals.
-5. Check for: smooth skin, perfect symmetry, impossible bokeh, inconsistent shadows, garbled text, extra/missing fingers.
+4. Do NOT let surface realism override forensic signals — but the reverse also applies: do NOT let the requirement to list indicators below push you toward "ai". Decide verdict/aiProbability FIRST, based purely on what you actually observe, and only then write the indicator lists to justify that decision. The lists always need entries (see STRICT RULES), but for genuinely authentic media those "aiIndicators" entries should read as weak/circumstantial and get severity "Low" — never let their required presence inflate aiProbability or flip the verdict.
+${MEDIA_CONFIG.checks}
 
 RESPONSE FORMAT: Return ONLY a raw JSON object — no prose, no markdown backticks.
 
@@ -239,12 +308,13 @@ RESPONSE FORMAT: Return ONLY a raw JSON object — no prose, no markdown backtic
 }
 
 STRICT RULES:
-- aiIndicators MUST have at least 4 entries — each describing a DIFFERENT forensic signal (e.g. skin texture, lighting, shadows, edges, noise patterns, symmetry, background, text/fingers, color grading, depth of field).
-- realIndicators MUST have at least 3 entries — each describing a DIFFERENT authentic characteristic found in the image.
+- aiIndicators MUST have at least 4 entries — each describing a DIFFERENT forensic signal (${MEDIA_CONFIG.categoryHint}). These are candidate/weak observations, NOT proof of AI generation — for media you judge to be authentic, these entries should be minor, hedged, and marked severity "Low", reflecting that they are far outweighed by the realIndicators.
+- realIndicators MUST have at least 3 entries — each describing a DIFFERENT authentic characteristic found in the media. For genuinely authentic amateur/consumer-grade footage, this includes ordinary capture imperfections (sensor noise, uneven lighting, low frame rate, natural asymmetry, compression artifacts) — these are POSITIVE evidence of authenticity, not neutral.
 - Do NOT repeat the same observation in multiple entries. Each entry must be a unique, distinct forensic finding.
 - Every entry MUST have name (2-4 words), severity, and description (full sentence).
 - NEVER use null, "Unknown", or empty string for name or description.
-- name must describe the actual signal, e.g. "Skin Texture Smoothness", "Perfect Symmetry", "Lighting Inconsistency".`;
+- name must describe the actual signal appropriate to this media type.
+- The required minimum entry counts above are a formatting requirement, not a signal — never let needing to fill 4 aiIndicators talk yourself into a higher aiProbability or an "ai"/"uncertain" verdict for media that otherwise looks authentic.`;
 
   function parseRetryDelay(msg) {
     const match = msg.match(/"retryDelay"\s*:\s*"([\d.]+)s"/);
@@ -312,7 +382,7 @@ STRICT RULES:
 /* ================================================================
    MERGE RESULTS
    ================================================================ */
-function mergeResults(geminiResult, sightEngineData) {
+function mergeResults(geminiResult, sightEngineData, mediaKind = 'image') {
   const seScore = sightEngineData?.type?.ai_generated !== undefined
     ? Math.round(sightEngineData.type.ai_generated * 100)
     : null;
@@ -364,14 +434,14 @@ function mergeResults(geminiResult, sightEngineData) {
       geminiResult.aiIndicators.push({
         name:        topGen ? `Detected: ${topGen.label}` : 'AI Pattern Detected',
         severity:    'Medium',
-        description: `Image shows characteristics consistent with AI generation (${geminiResult.aiProbability}% probability).`,
+        description: `${mediaKind === 'video' ? 'Video shows' : mediaKind === 'audio' ? 'Audio shows' : 'Image shows'} characteristics consistent with AI generation (${geminiResult.aiProbability}% probability).`,
       });
     }
     if (geminiResult.realIndicators.length === 0) {
       geminiResult.realIndicators.push({
         name:        'Authentic Characteristics',
         severity:    'Low',
-        description: `Image shows some characteristics consistent with authentic photography (${100 - geminiResult.aiProbability}% human probability).`,
+        description: `${mediaKind === 'video' ? 'Video shows' : mediaKind === 'audio' ? 'Audio shows' : 'Image shows'} some characteristics consistent with authentic ${mediaKind === 'video' ? 'footage' : mediaKind === 'audio' ? 'recording' : 'photography'} (${100 - geminiResult.aiProbability}% human probability).`,
       });
     }
 
@@ -422,9 +492,22 @@ async function analyze(fileBuffer, mimeType) {
   const base64          = fileBuffer.toString('base64');
   const sightEngineData = await runSightEngine(fileBuffer, mimeType);
   const geminiResult    = await runGemini(base64, mimeType, sightEngineData);
-  const result          = mergeResults(geminiResult, sightEngineData);
+  const result          = mergeResults(geminiResult, sightEngineData, mimeType.split('/')[0]);
   result.mediaType      = mimeType.split('/')[0].toUpperCase();
   console.log(`[Alethia] Verdict: ${result.verdict} (${result.aiProbability}% AI)`);
+
+  // ── SIH26204 blockchain layer: fingerprint the exact analysed bytes ──
+  // This never influences the verdict above — it only lets the user
+  // optionally register this already-computed verdict on-chain afterward.
+  try {
+    result.mediaHash = hashService.sha256Hex(fileBuffer);
+    result.perceptualHash = await hashService.perceptualHash(fileBuffer, mimeType);
+  } catch (err) {
+    console.warn('[Alethia] Media fingerprinting failed (non-fatal):', err.message);
+    result.mediaHash = null;
+    result.perceptualHash = null;
+  }
+
   return result;
 }
 
@@ -432,7 +515,11 @@ async function analyze(fileBuffer, mimeType) {
    ROUTES
    ================================================================ */
 app.get('/api/health', (req, res) => {
-  res.json({ status: 'ok', apis: { sightengine: !!CONFIG.SIGHTENGINE_USER, gemini: !!CONFIG.GEMINI_API_KEY } });
+  res.json({
+    status: 'ok',
+    apis: { sightengine: !!CONFIG.SIGHTENGINE_USER, gemini: !!CONFIG.GEMINI_API_KEY },
+    blockchain: blockchainService.getStatus(),
+  });
 });
 
 app.post('/api/analyze/upload', upload.single('image'), async (req, res) => {
@@ -467,8 +554,8 @@ app.post('/api/analyze/url', async (req, res) => {
     });
 
     const mimeType = (response.headers['content-type'] || '').split(';')[0].trim();
-    if (!mimeType.startsWith('image/'))
-      return res.status(400).json({ error: `URL did not return an image (got: ${mimeType})` });
+    if (!/^(image|video|audio)\//.test(mimeType))
+      return res.status(400).json({ error: `URL did not return an image, video, or audio file (got: ${mimeType})` });
 
     res.json(await analyze(Buffer.from(response.data), mimeType));
   } catch (err) {
@@ -477,14 +564,137 @@ app.post('/api/analyze/url', async (req, res) => {
   }
 });
 
+/* ================================================================
+   SIH26204 — BLOCKCHAIN AUTHENTICITY ROUTES
+   Additive layer only. ALETHEIA's existing detection above is the
+   source of truth for the verdict; these routes only register/verify
+   a tamper-evident record of that verdict on an Ethereum-compatible
+   testnet (or in a clearly-labelled in-memory demo mode if testnet
+   config isn't present). None of this can ever mark media as fake —
+   only "registered" / "not registered" / "integrity mismatch".
+   ================================================================ */
+
+function isValidHash(h) {
+  return typeof h === 'string' && /^0x[0-9a-fA-F]{64}$/.test(h);
+}
+
+// Overall subsystem status — lets the frontend show a "Demo Blockchain Mode"
+// badge instead of ever pretending demo records are real transactions.
+app.get('/api/blockchain/status', (req, res) => {
+  res.json(blockchainService.getStatus());
+});
+
+// Quick "is this exact fingerprint already registered?" check, run
+// automatically right after analysis completes (before the user opts in).
+app.get('/api/blockchain/status/:hash', async (req, res) => {
+  try {
+    const hash = req.params.hash;
+    if (!isValidHash(hash)) return res.status(400).json({ error: 'Invalid media hash format' });
+    const result = await blockchainService.isRegistered(hash);
+    res.json(result);
+  } catch (err) {
+    console.error('[Blockchain/status] Error:', err.message);
+    res.status(200).json({ registered: false, demoMode: true, error: { code: 'UNAVAILABLE', message: 'Blockchain status temporarily unavailable.' } });
+  }
+});
+
+// Explicit, user-initiated registration — never automatic.
+app.post('/api/blockchain/register', async (req, res) => {
+  try {
+    const { mediaHash, verdict, confidence, mediaType, modelVersion, reportData } = req.body || {};
+
+    if (!isValidHash(mediaHash)) return res.status(400).json({ error: 'Invalid or missing media hash' });
+    if (!verdict || !['real', 'ai', 'uncertain'].includes(verdict)) {
+      return res.status(400).json({ error: 'verdict must be one of: real, ai, uncertain' });
+    }
+    const conf = Number(confidence);
+    if (!Number.isFinite(conf) || conf < 0 || conf > 100) {
+      return res.status(400).json({ error: 'confidence must be a number 0-100' });
+    }
+
+    const reportHash = hashService.reportHashOf(reportData || null);
+
+    const outcome = await blockchainService.registerMedia({
+      mediaHash,
+      verdict,
+      confidence: conf,
+      mediaType: (mediaType || 'IMAGE').toUpperCase(),
+      modelVersion: modelVersion || 'sightengine-genai+gemini',
+      reportHash,
+    });
+
+    if (!outcome.success) {
+      const status = outcome.error?.code === 'DUPLICATE' ? 409 : 503;
+      return res.status(status).json(outcome);
+    }
+    res.json(outcome);
+  } catch (err) {
+    console.error('[Blockchain/register] Error:', err.message);
+    res.status(503).json({ success: false, error: { code: 'UNAVAILABLE', message: 'Blockchain registration temporarily unavailable. Your AI detection result above is unaffected.' } });
+  }
+});
+
+// Verify Media: hash an uploaded file and compare against the registry.
+// - No verificationId given  -> "is this exact file registered at all?"
+// - verificationId given     -> "does this file match THAT specific record?"
+app.post('/api/blockchain/verify', uploadForVerify.single('media'), async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No file uploaded' });
+
+    const mediaHash = hashService.sha256Hex(req.file.buffer);
+    const verificationId = (req.body?.verificationId || '').trim();
+
+    if (verificationId) {
+      const { record, demoMode, error } = await blockchainService.getRecordById(verificationId);
+      if (error) return res.status(503).json({ status: 'unavailable', mediaHash, error });
+      if (!record) {
+        return res.json({ status: 'no_record', mediaHash, demoMode, message: 'No blockchain record found for that Verification ID. This does not mean the media is fake.' });
+      }
+      if (record.mediaHash.toLowerCase() === mediaHash.toLowerCase()) {
+        return res.json({ status: 'verified', mediaHash, demoMode, record, message: 'Blockchain Verified — media matches the registered fingerprint.' });
+      }
+      return res.json({ status: 'mismatch', mediaHash, demoMode, record, message: 'Integrity Verification Failed — the submitted file does not match the registered fingerprint.' });
+    }
+
+    const { record, demoMode, error } = await blockchainService.getRecordByHash(mediaHash);
+    if (error) return res.status(503).json({ status: 'unavailable', mediaHash, error });
+    if (!record) {
+      return res.json({ status: 'no_record', mediaHash, demoMode, message: 'No Blockchain Record Found. This does not mean the media is fake.' });
+    }
+    return res.json({ status: 'verified', mediaHash, demoMode, record, message: 'Blockchain Verified — media matches a registered fingerprint.' });
+  } catch (err) {
+    console.error('[Blockchain/verify] Error:', err.message);
+    res.status(503).json({ status: 'unavailable', error: { code: 'UNAVAILABLE', message: 'Blockchain verification temporarily unavailable.' } });
+  }
+});
+
+// Public verification-page / certificate lookup by Verification ID (ALT-XXXXXX).
+app.get('/api/blockchain/record/:id', async (req, res) => {
+  try {
+    const { record, demoMode, error } = await blockchainService.getRecordById(req.params.id);
+    if (error) return res.status(503).json({ error });
+    if (!record) return res.status(404).json({ error: { code: 'NOT_FOUND', message: 'No record found for that Verification ID.' } });
+    res.json({ record, demoMode });
+  } catch (err) {
+    console.error('[Blockchain/record] Error:', err.message);
+    res.status(503).json({ error: { code: 'UNAVAILABLE', message: 'Blockchain lookup temporarily unavailable.' } });
+  }
+});
+
 /* ── START ───────────────────────────────────────────────────── */
 app.listen(PORT, () => {
   console.log(`\n🔍 Alethia backend running on http://localhost:${PORT}`);
   console.log(`   SightEngine: ${CONFIG.SIGHTENGINE_USER ? '✓ configured' : '✗ not configured'}`);
   console.log(`   Gemini:      ${CONFIG.GEMINI_API_KEY   ? '✓ configured' : '✗ not configured'}`);
+  const bcStatus = blockchainService.getStatus();
+  console.log(`   Blockchain:  ${bcStatus.configured ? `✓ configured (${bcStatus.network})` : '⚠ Demo Blockchain Mode (no testnet config found)'}`);
   console.log(`\n   Set keys in .env:`);
   console.log(`   SIGHTENGINE_API_USER=...`);
   console.log(`   SIGHTENGINE_API_SECRET=...`);
-  console.log(`   GEMINI_API_KEY=...\n`);
+  console.log(`   GEMINI_API_KEY=...`);
+  console.log(`   BLOCKCHAIN_RPC_URL=...`);
+  console.log(`   BLOCKCHAIN_PRIVATE_KEY=...`);
+  console.log(`   BLOCKCHAIN_CONTRACT_ADDRESS=...`);
+  console.log(`   BLOCKCHAIN_NETWORK=sepolia`);
+  console.log(`   ALCHEMY_API_KEY=...\n`);
 });
-

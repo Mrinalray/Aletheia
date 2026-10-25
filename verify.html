@@ -1,0 +1,225 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Verify Media — ALETHEIA</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link
+    href="https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:wght@300;400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap"
+    rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+
+<body>
+
+  <div class="ambient">
+    <div class="orb o1"></div>
+    <div class="orb o2"></div>
+    <div class="orb o3"></div>
+    <div class="grid"></div>
+  </div>
+
+  <!-- HEADER -->
+  <header class="header">
+    <div class="logo">
+      <a href="index.html" style="display:flex;align-items:center;gap:8px;text-decoration:none;">
+        <div class="logo-mark">
+          <svg width="20" height="20" viewBox="0 0 22 22" fill="none">
+            <circle cx="11" cy="11" r="9" stroke="var(--accent)" stroke-width="1.4" />
+            <circle cx="11" cy="11" r="4.5" stroke="var(--accent)" stroke-width="1.4" />
+            <circle cx="11" cy="11" r="1.5" fill="var(--accent)" />
+            <line x1="11" y1="2" x2="11" y2="5" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" />
+            <line x1="11" y1="17" x2="11" y2="20" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" />
+            <line x1="2" y1="11" x2="5" y2="11" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" />
+            <line x1="17" y1="11" x2="20" y2="11" stroke="var(--accent)" stroke-width="1.4" stroke-linecap="round" />
+          </svg>
+        </div>
+        <span class="logo-text">ALETHEIA <span class="logo-emoji">🎭</span></span>
+      </a>
+    </div>
+    <div class="header-right">
+      <a class="verify-nav-link" href="index.html">← Back to Analyzer</a>
+    </div>
+  </header>
+
+  <div class="intro" style="padding-bottom:0;">
+    <div class="intro-inner" style="grid-template-columns:1fr;max-width:640px;margin:0 auto;">
+      <div class="intro-copy" style="text-align:center;">
+        <div class="intro-eyebrow" style="justify-content:center;"><span class="edot"></span>DECENTRALIZED AUTHENTICITY LAYER</div>
+        <h1 class="intro-title">Verify a <span class="accent-word">Blockchain Record</span></h1>
+        <p class="intro-sub" style="margin:0 auto;">Look up a Verification ID from an ALETHEIA certificate, or upload a
+          file to check whether its exact fingerprint is registered on-chain.</p>
+      </div>
+    </div>
+  </div>
+
+  <div class="main" style="max-width:640px;margin:0 auto;padding:24px 20px 80px;display:flex;flex-direction:column;gap:20px;">
+
+    <!-- LOOKUP BY VERIFICATION ID -->
+    <div class="rcard">
+      <div class="card-head">
+        <div class="ci ci-bc"><svg width="13" height="13" viewBox="0 0 14 14">
+            <rect x="1.5" y="4" width="4.5" height="4.5" rx=".8" stroke="currentColor" stroke-width="1.1" />
+            <rect x="8" y="4" width="4.5" height="4.5" rx=".8" stroke="currentColor" stroke-width="1.1" />
+            <rect x="4.75" y="0.3" width="4.5" height="4.5" rx=".8" stroke="currentColor" stroke-width="1.1" />
+          </svg></div>
+        LOOK UP BY VERIFICATION ID
+      </div>
+      <div style="display:flex;gap:10px;flex-wrap:wrap;margin-bottom:6px;">
+        <input id="idInput" type="text" placeholder="ALT-XXXXXXXX"
+          style="flex:1;min-width:180px;padding:11px 14px;border-radius:var(--r-sm);border:1.5px solid var(--border2);background:var(--bg3);color:var(--text);font-family:var(--font-mono);font-size:13px;" />
+        <button class="bc-btn bc-btn-primary" onclick="lookupById()">Look Up</button>
+      </div>
+      <p class="card-body" style="font-size:12px;color:var(--text3);">Found on your ALETHEIA authenticity certificate, e.g. <code>ALT-5CCF010C</code>.</p>
+      <div id="idResult"></div>
+    </div>
+
+    <!-- VERIFY BY FILE UPLOAD -->
+    <div class="rcard">
+      <div class="card-head">
+        <div class="ci ci-ok"><svg width="13" height="13" viewBox="0 0 14 14">
+            <circle cx="7" cy="7" r="5.5" stroke="currentColor" stroke-width="1.2" />
+            <path d="M4.5 7L6.5 9L9.5 5.5" stroke="currentColor" stroke-width="1.2" stroke-linecap="round" stroke-linejoin="round" />
+          </svg></div>
+        VERIFY A FILE'S FINGERPRINT
+      </div>
+      <p class="card-body" style="font-size:12px;color:var(--text3);margin-bottom:10px;">
+        Upload a file to check whether its exact SHA-256 fingerprint matches a blockchain record.
+        Optionally provide a Verification ID to check it against one specific record (integrity check).
+      </p>
+      <input id="verifyIdInput" type="text" placeholder="Optional: ALT-XXXXXXXX"
+        style="width:100%;margin-bottom:10px;padding:11px 14px;border-radius:var(--r-sm);border:1.5px solid var(--border2);background:var(--bg3);color:var(--text);font-family:var(--font-mono);font-size:13px;" />
+      <div style="display:flex;gap:10px;flex-wrap:wrap;align-items:center;">
+        <input id="fileInput" type="file" accept="image/*,video/*,audio/*"
+          style="flex:1;min-width:180px;font-size:12px;color:var(--text2);" />
+        <button class="bc-btn bc-btn-primary" onclick="verifyFile()">Verify</button>
+      </div>
+      <div id="fileResult"></div>
+    </div>
+
+  </div>
+
+  <!-- FOOTER -->
+  <footer class="footer">
+    <div class="footer-inner">
+      <div class="footer-brand">
+        <span class="footer-logo">ALETHEIA</span>
+        <span class="footer-tag">Truth Engine</span>
+      </div>
+      <div class="footer-divider"></div>
+      <div class="footer-team">
+        <div class="footer-team-label">TEAM X</div>
+        <div class="footer-members"><span>SIH26</span></div>
+      </div>
+      <div class="footer-links">
+        <div class="footer-links-label">RESOURCES</div>
+        <a href="documentation.html" class="footer-doc-link">Documentation →</a>
+      </div>
+    </div>
+  </footer>
+
+  <script>
+    const BACKEND_URL = 'https://aletheia-blockchain.onrender.com';
+
+    // Support pretty URLs like /verify/ALT-XXXXXXXX (if the host rewrites
+    // that path to this file) as well as verify.html?id=ALT-XXXXXXXX.
+    function extractIdFromLocation() {
+      const params = new URLSearchParams(window.location.search);
+      if (params.get('id')) return params.get('id');
+      const parts = window.location.pathname.split('/').filter(Boolean);
+      const last = parts[parts.length - 1] || '';
+      if (/^ALT-/i.test(last)) return last;
+      return '';
+    }
+
+    function statusBadge(status) {
+      const map = {
+        verified:      ['bc-verified', '✓ Blockchain Verified'],
+        registered:    ['bc-registered', '✓ Registered'],
+        no_record:     ['bc-not-registered', 'No Blockchain Record Found'],
+        mismatch:      ['bc-mismatch', '⚠ Integrity Verification Failed'],
+        unavailable:   ['bc-unavailable', '⚠ Temporarily Unavailable'],
+        not_found:     ['bc-not-registered', 'Not Found'],
+      };
+      const [cls, label] = map[status] || ['bc-unavailable', status];
+      return `<span class="bc-status-pill ${cls}">${label}</span>`;
+    }
+
+    function renderRecordDetails(record, demoMode) {
+      if (!record) return '';
+      const ts = record.timestamp ? new Date(record.timestamp * 1000).toLocaleString() : '—';
+      return `
+        <div class="bc-detail-grid" style="margin-top:14px;">
+          <div class="bc-detail"><span class="bc-detail-label">Verdict</span><span class="bc-detail-value">${(record.verdict || '—').toUpperCase()}</span></div>
+          <div class="bc-detail"><span class="bc-detail-label">Confidence</span><span class="bc-detail-value">${record.confidence ?? '—'}%</span></div>
+          <div class="bc-detail"><span class="bc-detail-label">Media Type</span><span class="bc-detail-value">${record.mediaType || '—'}</span></div>
+          <div class="bc-detail"><span class="bc-detail-label">Timestamp</span><span class="bc-detail-value">${ts}</span></div>
+          <div class="bc-detail"><span class="bc-detail-label">Model Version</span><span class="bc-detail-value">${record.modelVersion || '—'}</span></div>
+          <div class="bc-detail"><span class="bc-detail-label">Network</span><span class="bc-detail-value">${demoMode ? 'Demo Blockchain Mode' : 'Ethereum Sepolia Testnet'}</span></div>
+        </div>`;
+    }
+
+    async function lookupById(idOverride) {
+      const id = (idOverride || document.getElementById('idInput').value.trim()).toUpperCase();
+      const out = document.getElementById('idResult');
+      if (!id) { out.innerHTML = ''; return; }
+      out.innerHTML = `<p class="card-body" style="margin-top:12px;">Looking up…</p>`;
+      try {
+        const r = await fetch(`${BACKEND_URL}/api/blockchain/record/${encodeURIComponent(id)}`, { signal: AbortSignal.timeout(8000) });
+        if (r.status === 404) {
+          out.innerHTML = `<div style="margin-top:12px;">${statusBadge('not_found')}<p class="card-body" style="font-size:12px;margin-top:8px;">No blockchain record exists for that Verification ID.</p></div>`;
+          return;
+        }
+        if (!r.ok) throw new Error('lookup failed');
+        const { record, demoMode } = await r.json();
+        out.innerHTML = `<div style="margin-top:12px;">${statusBadge('registered')}${record.demoMode ? '<span class="bc-demo-tag" style="margin-left:8px;">DEMO MODE</span>' : (demoMode ? '<span class="bc-demo-tag" style="margin-left:8px;">DEMO MODE</span>' : '')}${renderRecordDetails(record, demoMode)}</div>`;
+      } catch {
+        out.innerHTML = `<div style="margin-top:12px;">${statusBadge('unavailable')}</div>`;
+      }
+    }
+
+    async function verifyFile() {
+      const fileInput = document.getElementById('fileInput');
+      const verificationId = document.getElementById('verifyIdInput').value.trim();
+      const out = document.getElementById('fileResult');
+      if (!fileInput.files[0]) { out.innerHTML = `<p class="card-body" style="margin-top:12px;">Choose a file first.</p>`; return; }
+
+      out.innerHTML = `<p class="card-body" style="margin-top:12px;">Hashing and checking…</p>`;
+      const fd = new FormData();
+      fd.append('media', fileInput.files[0]);
+      if (verificationId) fd.append('verificationId', verificationId);
+
+      try {
+        const r = await fetch(`${BACKEND_URL}/api/blockchain/verify`, { method: 'POST', body: fd });
+        const data = await r.json();
+        if (!r.ok && data.status !== 'mismatch' && data.status !== 'no_record') {
+          out.innerHTML = `<div style="margin-top:12px;">${statusBadge('unavailable')}<p class="card-body" style="font-size:12px;margin-top:8px;">${data.error?.message || 'Verification temporarily unavailable.'}</p></div>`;
+          return;
+        }
+        const demoTag = data.demoMode ? '<span class="bc-demo-tag" style="margin-left:8px;">DEMO MODE</span>' : '';
+        out.innerHTML = `
+          <div style="margin-top:12px;">
+            ${statusBadge(data.status)}${demoTag}
+            <p class="card-body" style="font-size:12px;margin-top:8px;">${data.message || ''}</p>
+            <p class="card-body" style="font-size:11px;font-family:var(--font-mono);color:var(--text3);word-break:break-all;">SHA-256: ${data.mediaHash}</p>
+            ${data.record ? renderRecordDetails(data.record, data.demoMode) : ''}
+          </div>`;
+      } catch {
+        out.innerHTML = `<div style="margin-top:12px;">${statusBadge('unavailable')}</div>`;
+      }
+    }
+
+    // Auto-run lookup if arriving via /verify/ALT-XXXXXXXX or ?id=
+    document.addEventListener('DOMContentLoaded', () => {
+      const id = extractIdFromLocation();
+      if (id) {
+        document.getElementById('idInput').value = id;
+        lookupById(id);
+      }
+    });
+  </script>
+</body>
+
+</html>
